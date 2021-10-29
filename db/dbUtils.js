@@ -6,7 +6,7 @@ function getConnection(callback){
     pool.getConnection((err,conn)=>{
         if(!err){
             callback(conn);
-        }else throw err;
+        }
     });
 }
 
