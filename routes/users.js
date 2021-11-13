@@ -1,11 +1,74 @@
 const express = require('express');
 const getConnection = require('../db/dbUtils.js');
 const router = express.Router();
+const secretKey = require("../config/jwtconfig").key;
+const jwt = require('jsonwebtoken');
+const tokenCheck = require('../middleware/tokenCheck');
 
-/* GET home page. */
-
+router.post('/users/signup',(req,res)=>{
+  const id = req.body.id;
+  const password = req.body.password;
+  const name = req.body.name;
+  const query1 = "SELECT * FROM member WHERE user_id = ?";
+  const query2 = "INSERT INTO member(user_id,user_password,user_name) VALUES(?,?,?)"
+  getConnection((conn)=>{
+    conn.query(query1,[id],(err,rows)=>{
+      if(err){
+        res.json({
+          success: "error"
+        });
+        return;
+      }
+      if(rows.length == 1 ){
+        res.json({
+          success : "FAIL"
+        });
+        return;
+      }
+      getConnection((conn)=>{
+        conn.query(query2,[id,password,name],(err,rows)=>{
+          if(err){
+            res.json({
+              success : "FAIL"
+            });
+            return;
+          }
+          res.json({
+            success : "OK"
+          });
+        })
+      })
+    });
+  });
+});
+router.post('/users/login',(req,res)=>{
+  const id = req.body.id;
+  const password = req.body.password;
+  const query = "SELECT * FROM member WHERE user_id = ? AND user_password = ?";
+  getConnection((conn)=>{
+    conn.query(query,[id,password],(err,rows)=>{
+      if(err){
+        res.json({
+          success : "FAIL"
+        });
+        return;
+      }
+      const token = jwt.sign({
+        id : id,
+      },secretKey,{
+        expiresIn : '1d',
+        issuer : 'study_planner_server',
+        subject : 'user_info'
+      });
+      res.json({
+        token : token,
+        success : "OK"
+      });
+    });
+  });
+});
 //알맞은 user의 데이터만 가져오기 
-router.get('/users/:user_uid/records/:date',(req,res)=>{
+router.get('/users/:user_uid/records/:date',tokenCheck,(req,res)=>{
   const uid = req.params.user_uid;
   const date = req.params.date;
   const query = "SELECT * FROM study_record WHERE user_uid = ? AND DATE(reg_date) = ?";
@@ -29,7 +92,7 @@ router.get('/users/:user_uid/records/:date',(req,res)=>{
   }
 );
 //study record 갱신
-router.put('/users/:user_uid/records/:date',(req,res)=>{
+router.put('/users/:user_uid/records/:date',tokenCheck,(req,res)=>{
     const subject_name = req.body.subject_name;
     const study_time = req.body.study_time;
     const uid = req.params.user_uid;
@@ -52,7 +115,7 @@ router.put('/users/:user_uid/records/:date',(req,res)=>{
   }
 );
 //study record 추가
-router.post('/users/:user_uid/records/:date',(req,res)=>{
+router.post('/users/:user_uid/records/:date',tokenCheck,(req,res)=>{
   const subject_name = req.body.subject_name;
   const date = req.params.date;
   const uid = req.params.user_uid;
@@ -89,7 +152,7 @@ router.post('/users/:user_uid/records/:date',(req,res)=>{
   }
 );
 //study record 삭제
-router.delete('/users/:user_uid/records/:date',(req,res)=>{
+router.delete('/users/:user_uid/records/:date',tokenCheck,(req,res)=>{
   const subject_name = req.body.subject_name;
   const date = req.params.date;
   const uid = req.params.user_uid;
